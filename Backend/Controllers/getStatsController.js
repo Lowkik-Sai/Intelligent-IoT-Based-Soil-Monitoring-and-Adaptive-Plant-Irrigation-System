@@ -1,12 +1,13 @@
-const { client, influxDB } = require("../database/influxDB");
-
+const { client } = require("../database/influxDB");
+const { dbRef } = require("../database/firebase");
+const { get } = require("firebase/database");
 
 const getStats = {
     influxDB: async(req, res) => {
         try {
             const { startTimestamp, endTimeStamp } = req.body;
     
-            // endTimeStamp = (endTimeStamp == null) ? new Date() : endTimeStamp;
+            endTimeStamp = (endTimeStamp == null) ? new Date() : endTimeStamp;
     
             const query = 
             `
@@ -46,10 +47,17 @@ const getStats = {
 
     firebase: async(req, res) => {
         try {
-            
+            get(dbRef)
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        res.status(200).json(snapshot.val());
+                    } else {
+                        res.status(404).json("No data available");
+                    }
+                })
         } catch(err){
             console.log(err);
-            res.status(503).json("Internal server error! ",err);
+            res.status(503).json("Error fetching data: ",err);
         }
     }
 }

@@ -2,6 +2,8 @@
 #include "rain.h"
 #include <WiFiMulti.h>
 #include <InfluxDbClient.h>
+#include <Firebase.h>
+#include <ArduinoJson.h>
 
 // Temperature and Humidity DHT sensor
 #define DHTPIN 4  
@@ -23,6 +25,10 @@ RAIN RS(ANALOGPIN, POWERPIN);
 WiFiMulti wifiMulti;
 #define WIFI_SSID "Lowkik Sai"
 #define WIFI_PASSWORD "244466666"
+
+//Firebase URL
+#define REFERENCE_URL "https://soil-monitor-plant-irrigation-default-rtdb.asia-southeast1.firebasedatabase.app/"
+Firebase fb(REFERENCE_URL);
 
 // InfluxDB Configuration
 #define INFLUXDB_URL "https://us-east-1-1.aws.cloud2.influxdata.com"
@@ -127,11 +133,32 @@ void loop() {
 
     Serial.printf("🌡️ Temp: %.2f°C | 💧 Humidity: %.2f%% | 🔥 Heat Index: %.2f°C\n", t, h, hic);
     Serial.printf("⏳ %lu ms | 🌧️ Rain Level: %d | Analog: %.3f ", millis(), rainLevel, analogValue);
-    if (analogValue > 2.5) Serial.println("| 🚨 RAINING!");
+    if (analogValue < 2.5) Serial.println("| 🚨 RAINING!");
     else Serial.println("| ✅ No Rain");
 
     Serial.printf("🌱 Soil Moisture: %d | %s\n", analog_value, digital_state == LOW ? "💦 Wet (Good Moisture) ✅" : "🔥 Dry (Needs Water) ❌");
     Serial.println("--------------------------------------");
+
+    // Create a JSON document to hold the output data
+    JsonDocument data;
+
+    // Add various data types to the JSON document
+    data["temperature"] = t;
+    data["humidity"] = h;
+    data["heat_index"] = hic;
+    data["rain_level"] = rainLevel;
+    data["soil_moisture"] = analog_value;
+    data["rain_detected"] = (analogValue < 2.5 ? 1 : 0);
+
+    // Create a string to hold the serialized JSON data
+    String serializeData;
+    // Optional: Shrink the JSON document to fit its contents exactly
+    data.shrinkToFit();
+    // Serialize the JSON document to a string
+    serializeJson(data, serializeData);
+    // Set the serialized JSON data in Firebase
+    fb.setJson("stats", serializeData);
+    Serial.println("✅ Data Written to FirebaseDB!");
 
     // Store data into InfluxDB
     if (client->validateConnection()) {
