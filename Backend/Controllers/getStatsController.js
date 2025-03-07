@@ -5,20 +5,18 @@ const { get } = require("firebase/database");
 const getStats = {
     influxDB: async(req, res) => {
         try {
-            const { startTimestamp, endTimeStamp } = req.body;
-    
-            endTimeStamp = (endTimeStamp == null) ? new Date() : endTimeStamp;
-    
+            const { startTimestamp, endTimestamp } = req.body;
+
             const query = 
             `
             SELECT *
             FROM "iot-sensors"
             WHERE
-            time >= timestamp '${startTimestamp}' AND time <= timestamp '${endTimeStamp}'
+            time >= timestamp '${startTimestamp}' AND time <= timestamp '${endTimestamp}'
             AND
             ("heat_index" IS NOT NULL OR "humidity" IS NOT NULL OR "rain_detected" IS NOT NULL OR "rain_level" IS NOT NULL OR "soil_moisture" IS NOT NULL OR "temperature" IS NOT NULL)
             `;
-            
+
             const data = client.query(query, 'iot-soilplantmonitor-project');
             const response = {};
             for await (const row of data) {
