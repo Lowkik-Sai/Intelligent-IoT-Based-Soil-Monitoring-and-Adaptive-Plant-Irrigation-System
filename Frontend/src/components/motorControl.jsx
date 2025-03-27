@@ -3,7 +3,7 @@ import axios from "axios";
 import { Button, Typography, Card, CardContent, Switch } from "@mui/material";
 
 
-const MODE_API = `${import.meta.env.BASE_URL}/api/mode`;
+const MODE_API = `${import.meta.env.VITE_BASE_URL}/api/mode`;
 
 const MotorControl = ({ data }) => {
     const [motorState, setMotorState] = useState(false);
