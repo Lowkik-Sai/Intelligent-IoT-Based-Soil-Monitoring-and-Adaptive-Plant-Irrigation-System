@@ -4,7 +4,7 @@ import MotorControl from './components/motorControl'
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = "http://localhost:8080/api/getStats";
+const API_URL = `${import.meta.env.BASE_URL}/api/getStats`;
 
 function App() {
     const [data, setData] = useState(null);

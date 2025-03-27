@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Button, Typography, Card, CardContent, Switch } from "@mui/material";
 
-const MODE_API = "http://localhost:8080/api/mode";
+
+const MODE_API = `${import.meta.env.BASE_URL}/api/mode`;
 
 const MotorControl = ({ data }) => {
     const [motorState, setMotorState] = useState(false);

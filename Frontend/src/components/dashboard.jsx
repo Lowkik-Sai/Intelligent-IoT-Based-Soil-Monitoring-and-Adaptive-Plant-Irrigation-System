@@ -6,7 +6,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
-const API_URL = "http://localhost:8080/api/getStats";
+const API_URL = `${import.meta.env.BASE_URL}/api/getStats`;
 
 const Dashboard = ({ data }) => {
     const [history, setHistory] = useState([]);
