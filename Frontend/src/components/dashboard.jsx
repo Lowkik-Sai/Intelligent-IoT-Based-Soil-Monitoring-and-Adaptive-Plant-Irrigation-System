@@ -29,7 +29,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js"
-import { ThermostatAuto, Opacity, LocalFireDepartment, Grass, CalendarMonth, ShowChart } from "@mui/icons-material"
+import { ThermostatAuto, Opacity, LocalFireDepartment, Grass, CalendarMonth, ShowChart, WaterDrop } from "@mui/icons-material"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 
@@ -198,6 +198,14 @@ const Dashboard = ({ data }) => {
       label: "Soil Moisture",
       unit: "",
       icon: Grass,
+      color: "#43a047",
+      bgColor: "rgba(67, 160, 71, 0.1)",
+    },
+    {
+      key: "rain_detected",
+      label: "Rain Detected",
+      unit: "",
+      icon: WaterDrop,
       color: "#43a047",
       bgColor: "rgba(67, 160, 71, 0.1)",
     },
