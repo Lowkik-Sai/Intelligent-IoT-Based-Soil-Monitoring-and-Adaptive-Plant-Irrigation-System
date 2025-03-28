@@ -141,160 +141,151 @@ void setup() {
     Serial.println("Setup complete!");
 }
 
+unsigned long lastSensorUpdate = 0;
+unsigned long lastMotorCheck = 0;
+const unsigned long sensorInterval = 5000; 
+const unsigned long motorCheckInterval = 10;
+
 void loop() {
-    Serial.println("--------------------------------------");    
-    // Read sensor data
-    float h = dht.readHumidity();
-    float t = dht.readTemperature();
-    float f = dht.readTemperature(true);
+    unsigned long currentMillis = millis();
 
-    if (isnan(h) || isnan(t) || isnan(f)) {
-        Serial.println(F("⚠️ Failed to read from DHT sensor!"));
-        delay(5000);  // Wait and retry
-        return;
-    }
+    // ======== 1. MOTOR CONTROL - Real-time Check (Every 200ms) ========
+    if (currentMillis - lastMotorCheck >= motorCheckInterval) {
+        lastMotorCheck = currentMillis;
 
-    float hif = dht.computeHeatIndex(f, h);
-    float hic = dht.computeHeatIndex(t, h, false);
+        Serial.println("Checking Firebase for Motor Updates...");
+        String getData = fb.getJson("stats");
 
-    float analogValue = RS.read();
-    int rainLevel = RS.getLevel();
-    int analog_value = analogRead(ANALOG_PIN);
-    int digital_state = digitalRead(DIGITAL_PIN);
+        if (getData != "NULL" && getData.length() > 5) {
+            JsonDocument getJSONData;
+            DeserializationError error = deserializeJson(getJSONData, getData);
+            
+            if (!error) {
+                if (getJSONData.containsKey("mode")) {
+                    currentMode = getJSONData["mode"].as<String>();
+                }
+                if (getJSONData.containsKey("motorState")) {
+                    currentMotorState = getJSONData["motorState"].as<bool>();
+                }
 
-    int rainDetected = (analogValue < 7);
+                Serial.print("🔥 Firebase Updated - Mode: ");
+                Serial.print(currentMode);
+                Serial.print(", Motor: ");
+                Serial.println(currentMotorState ? "ON" : "OFF");
 
-    // Print sensor readings
-    Serial.printf("🌡️ Temp: %.2f°C | 💧 Humidity: %.2f%% | 🔥 Heat Index: %.2f°C\n", t, h, hic);
-    Serial.printf("⏳ %lu ms | 🌧️ Rain Level: %d | Analog: %.3f ", millis(), rainLevel, analogValue);
-    
-    if (rainDetected) {
-        Serial.println("| 🚨 RAINING!");
-    } else {
-        Serial.println("| ✅ No Rain");
-    }
-
-    Serial.printf("🌱 Soil Moisture: %d | %s\n", 
-        analog_value, 
-        digital_state == LOW ? "💦 Wet (Good Moisture) ✅" : "🔥 Dry (Needs Water) ❌");
-    
-    // Fetch current settings from Firebase
-    Serial.println("Fetching mode from Firebase...");
-    String getData = fb.getJson("stats");
-    
-    if (getData == "NULL" || getData.length() < 5) {
-        Serial.println("⚠️ Couldn't retrieve mode from Firebase or data is empty");
-    } else {
-        
-        JsonDocument getJSONData;
-        DeserializationError error = deserializeJson(getJSONData, getData);
-        
-        if (error) {
-            Serial.print("❌ deserializeJson() failed: ");
-            Serial.println(error.c_str());
-        } else {
-            // Check if the keys exist before accessing them
-            if (getJSONData.containsKey("mode")) {
-                currentMode = getJSONData["mode"].as<String>();
+                if (currentMode == "MANUAL") {
+                    digitalWrite(MOTOR_PIN, currentMotorState ? HIGH : LOW);
+                    Serial.print("🖐 Manual Mode - Motor ");
+                    Serial.println(currentMotorState ? "ON" : "OFF");
+                }
             }
+        }
+    }
+
+    // ======== 2. SENSOR READING - Every 5 Seconds ========
+    if (currentMillis - lastSensorUpdate >= sensorInterval) {
+        lastSensorUpdate = currentMillis;
+
+        Serial.println("--------------------------------------");
+        float h = dht.readHumidity();
+        float t = dht.readTemperature();
+        float f = dht.readTemperature(true);
+
+        if (isnan(h) || isnan(t) || isnan(f)) {
+            Serial.println(F("⚠️ Failed to read from DHT sensor!"));
+            return;
+        }
+
+        float hif = dht.computeHeatIndex(f, h);
+        float hic = dht.computeHeatIndex(t, h, false);
+
+        float analogValue = RS.read();
+        int rainLevel = RS.getLevel();
+        int analog_value = analogRead(ANALOG_PIN);
+        int digital_state = digitalRead(DIGITAL_PIN);
+
+        int rainDetected = (analogValue < 7);
+
+        Serial.printf("🌡️ Temp: %.2f°C | 💧 Humidity: %.2f%% | 🔥 Heat Index: %.2f°C\n", t, h, hic);
+        Serial.printf("⏳ %lu ms | 🌧️ Rain Level: %d | Analog: %.3f ", millis(), rainLevel, analogValue);
+
+        if (rainDetected) {
+            Serial.println("| 🚨 RAINING!");
+        } else {
+            Serial.println("| ✅ No Rain");
+        }
+
+        Serial.printf("🌱 Soil Moisture: %d | %s\n", 
+            analog_value, 
+            digital_state == LOW ? "💦 Wet (Good Moisture) ✅" : "🔥 Dry (Needs Water) ❌");
+
+        // Update Firebase
+        JsonDocument data;
+        data["temperature"] = t;
+        data["humidity"] = h;
+        data["heat_index"] = hic;
+        data["rain_level"] = rainLevel;
+        data["soil_moisture"] = analog_value;
+        data["rain_detected"] = rainDetected;
+        data["mode"] = currentMode;
+        data["motorState"] = currentMotorState;
+
+        String serializeData;
+        serializeJson(data, serializeData);
+        Serial.print("Sending to Firebase: ");
+        Serial.println(serializeData);
+
+        if (fb.setJson("stats", serializeData)) {
+            Serial.println("✅ Data Written to FirebaseDB!");
+        } else {
+            Serial.println("❌ Failed to write to FirebaseDB!");
+        }
+
+        // ======== 3. AUTO MODE MOTOR CONTROL ========
+        if (currentMode == "AUTO") {
+            bool shouldMotorBeOn = !rainDetected && (digital_state == HIGH);
+            digitalWrite(MOTOR_PIN, shouldMotorBeOn ? HIGH : LOW);
             
-            if (getJSONData.containsKey("motorState")) {
-                currentMotorState = getJSONData["motorState"].as<bool>();
+            if (currentMotorState != shouldMotorBeOn) {
+                currentMotorState = shouldMotorBeOn;
+                data["motorState"] = currentMotorState;
+
+                serializeJson(data, serializeData);
+                fb.setJson("stats", serializeData);
+
+                Serial.print("📡 Updated motor state in Firebase: ");
+                Serial.println(currentMotorState ? "ON" : "OFF");
             }
-            
-            Serial.print("✅ Retrieved from Firebase - Mode: ");
-            Serial.print(currentMode);
-            Serial.print(", Motor State: ");
+        } else if (currentMode == "MANUAL") {
+            digitalWrite(MOTOR_PIN, currentMotorState ? HIGH : LOW);
+            Serial.print("🖐 Manual Mode - Motor ");
             Serial.println(currentMotorState ? "ON" : "OFF");
-        }
-    }
-    
-    // Create a JSON document with the current sensor data and settings
-    JsonDocument data;
-    data["temperature"] = t;
-    data["humidity"] = h;
-    data["heat_index"] = hic;
-    data["rain_level"] = rainLevel;
-    data["soil_moisture"] = analog_value;
-    data["rain_detected"] = rainDetected;
-    data["mode"] = currentMode;
-    data["motorState"] = currentMotorState;
-
-    // Send data to Firebase
-    String serializeData;
-    serializeJson(data, serializeData);
-    Serial.print("Sending to Firebase: ");
-    Serial.println(serializeData);
-    
-    if (fb.setJson("stats", serializeData)) {
-        Serial.println("✅ Data Written to FirebaseDB!");
-    } else {
-        Serial.println("❌ Failed to write to FirebaseDB!");
-    }
-
-    // Control the motor based on mode and conditions
-    if (currentMode == "AUTO") {
-        bool shouldMotorBeOn = false;
-        
-        if (!rainDetected && digital_state == HIGH) {
-            // Dry soil and not raining - turn on motor
-            shouldMotorBeOn = true;
-            Serial.println("🌱 Soil Dry and Not Raining - Motor ON");
-        } else if (rainDetected) {
-            Serial.println("🌧 Raining - Motor OFF");
         } else {
-            Serial.println("🌱 Soil Moisture OK - Motor OFF");
+            Serial.println("⚠️ Unknown mode - Motor OFF");
+            digitalWrite(MOTOR_PIN, LOW);
         }
         
-        digitalWrite(MOTOR_PIN, shouldMotorBeOn ? HIGH : LOW);
-        
-        // Update motorState in data if it changed
-        if (currentMotorState != shouldMotorBeOn) {
-            currentMotorState = shouldMotorBeOn;
-            data["motorState"] = currentMotorState;
-            
-            // Update Firebase with new motor state
-            serializeJson(data, serializeData);
-            fb.setJson("stats", serializeData);
-            
-            Serial.print("📡 Updated motor state in Firebase: ");
-            Serial.println(currentMotorState ? "ON" : "OFF");
-        }
-    } 
-    else if (currentMode == "MANUAL") {
-        // In manual mode, follow the motorState from Firebase
-        digitalWrite(MOTOR_PIN, currentMotorState ? HIGH : LOW);
-        Serial.print("🖐 Manual Mode - Motor ");
-        Serial.println(currentMotorState ? "ON" : "OFF");
-    }
-    else {
-        // Unknown mode, default to OFF for safety
-        Serial.println("⚠️ Unknown mode - Motor OFF");
-        digitalWrite(MOTOR_PIN, LOW);
-    }
+        // ======== 4. INFLUXDB STORAGE ========
+        if (client && client->validateConnection()) {
+            Point sensorData("iot-sensors");
+            sensorData.addTag("device", "ESP32");
+            sensorData.addField("temperature", t);
+            sensorData.addField("humidity", h);
+            sensorData.addField("heat_index", hic);
+            sensorData.addField("rain_level", rainLevel);
+            sensorData.addField("soil_moisture", analog_value);
+            sensorData.addField("rain_detected", rainDetected ? 1 : 0);
+            sensorData.addField("motor_state", currentMotorState ? 1 : 0);
+            sensorData.addField("mode", currentMode);
 
-    // Store data in InfluxDB if connected
-    if (client && client->validateConnection()) {
-        Point sensorData("iot-sensors");
-        sensorData.addTag("device", "ESP32");
-        sensorData.addField("temperature", t);
-        sensorData.addField("humidity", h);
-        sensorData.addField("heat_index", hic);
-        sensorData.addField("rain_level", rainLevel);
-        sensorData.addField("soil_moisture", analog_value);
-        sensorData.addField("rain_detected", rainDetected ? 1 : 0);
-        sensorData.addField("motor_state", currentMotorState ? 1 : 0);
-        sensorData.addField("mode", currentMode);
-
-        if (!client->writePoint(sensorData)) {
-            Serial.print("❌ InfluxDB Write Failed: ");
-            Serial.println(client->getLastErrorMessage());
+            if (!client->writePoint(sensorData)) {
+                Serial.print("❌ InfluxDB Write Failed: ");
+                Serial.println(client->getLastErrorMessage());
+            } else {
+                Serial.println("✅ Data Written to InfluxDB!");
+            }
         } else {
-            Serial.println("✅ Data Written to InfluxDB!");
+            Serial.println("⚠️ Skipping InfluxDB write, connection lost or never established.");
         }
-    } else {
-        Serial.println("⚠️ Skipping InfluxDB write, connection lost or never established.");
     }
-
-    delay(5000);
 }
