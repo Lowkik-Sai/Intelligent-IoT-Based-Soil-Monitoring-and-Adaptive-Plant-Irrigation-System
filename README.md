@@ -11,7 +11,7 @@ Modern agriculture requires efficient water usage and minimal labor. This projec
 - **Automated irrigation** based on real-time soil moisture and weather data.
 - **Manual override** and control via an interactive web dashboard.
 - **Data analytics** for environmental trends and optimal watering.
-- **Wireless communication** using MQTT and Firebase for real-time syncing.
+- **Wireless communication** using Firebase for real-time syncing and Influx DB for data analytics.
 
 ---
 
@@ -42,7 +42,7 @@ Modern agriculture requires efficient water usage and minimal labor. This projec
 | Frontend          | React.js + Vite      |
 | Cloud Database    | Firebase (Realtime DB) |
 | Future Analytics  | InfluxDB             |
-| Communication     | MQTT over TLS        |
+| Communication     | HTTPS / TLS        |
 
 
 ---
@@ -54,7 +54,7 @@ Modern agriculture requires efficient water usage and minimal labor. This projec
 - Node.js (v18+ recommended)
 - Arduino IDE with ESP32 board support
 - Firebase project setup (Realtime Database enabled)
-- MQTT broker (optional, Firebase MQTT bridge or local Mosquitto)
+- Influx DB
 
 ---
 
@@ -107,7 +107,7 @@ npm run dev
 ## 🔄 Communication Flow
 - Sensors send data to ESP32.
 
-- ESP32 publishes data over MQTT and pushes it to Firebase.
+- ESP32 publishes data over HTTPS/TLS and pushes it to Firebase.
 
 - Backend fetches Firebase data and serves frontend APIs.
 
