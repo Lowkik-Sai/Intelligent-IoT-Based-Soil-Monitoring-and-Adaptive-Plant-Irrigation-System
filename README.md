@@ -18,7 +18,7 @@ Modern agriculture requires efficient water usage and minimal labor. This projec
 ## 📁 Project Resources
 
 - 🎥 **Video Demonstration**: [Watch the project](https://drive.google.com/drive/folders/1zn2MqHk0YZY0-eivaoOnHM1WMrlox3BN?usp=drive_link)
-- 📄 **Detailed Project Document**: Available in this repository under `IoT_Project_Document.pdf`
+- 📄 **Detailed Project Document**: Available in this repository under `IoT_Project_Document.docx`
 
 ---
 
@@ -126,9 +126,13 @@ npm run dev
 
 ## 🌍 Deployment
 Frontend hosted at: 
-```https://soilmonitoring-plantirrigation.vercel.app/```
+```sh
+https://soilmonitoring-plantirrigation.vercel.app
+```
 
 Backend hosted at: 
-```https://intelligent-iot-based-soil-monitoring.onrender.com```
+```sh
+https://intelligent-iot-based-soil-monitoring.onrender.com
+```
 
 
